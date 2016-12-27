@@ -3,7 +3,8 @@
   "main": "color-input.html",
   "dependencies": {
     "polymer": "Polymer/polymer#^1.4.0",
-    "overlay-container": "git@github.com:sharedlabs/overlay-container.git"
+    "overlay-container": "git@github.com:sharedlabs/overlay-container.git",
+    "tinycolor": "git@github.com:sharedlabs/tinycolor.git#master"
   },
   "devDependencies": {
     "iron-component-page": "PolymerElements/iron-component-page#^1.0.0",

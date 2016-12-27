@@ -1,0 +1,162 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../tinycolor/tinycolor.html">
+
+<dom-module id="color-input-canvas">
+  <template>
+    <style>
+      :host {
+        display: block;
+        height: 125px;
+        overflow: hidden;
+        position: relative;
+        width: 100%;
+      }
+
+      #overlay {
+        background: linear-gradient(to top, #000000, rgba(204, 154, 129, 0));
+        height: 100%;
+        width: 100%;
+      }
+
+      #handler {
+        border-radius: 50%;
+        border: 1px solid white;
+        box-shadow: 0 0 1px 0 #333;
+        box-sizing: border-box;
+        height: 12px;
+        pointer-events: none;
+        position: absolute;
+        width: 12px;
+      }
+    </style>
+
+    <div id="handler"></div>
+    <div id="overlay"></div>
+
+  </template>
+</dom-module>
+
+<script>
+(function() {
+  'use strict';
+
+  Polymer({
+
+    is: 'color-input-canvas',
+
+    properties: {
+
+      /**
+       * True when the user is dragging the handler.
+       */
+      dragging: {
+        type: Boolean,
+        value: false,
+        readOnly: true
+      },
+
+      // from 0 to 360
+      hue: {
+        type: Number,
+        notify: true,
+        observer: '_hueChanged'
+      },
+
+      hsv: {
+        type: Object,
+        notify: true,
+        observer: '_hsvChanged'
+      }
+
+    },
+
+    listeners: {
+      'track': '_onTrack',
+      'down': '_onDown'
+    },
+
+    _hsvChanged(hsv) {
+      if (this.dragging) {
+        return;
+      }
+
+      this.hue = Math.round(hsv.h);
+      requestAnimationFrame(() => this._positionizeHandler());
+    },
+
+    _hueChanged(hue) {
+      if (this.hsv && this.hsv.h !== hue) {
+        this.hsv = Object.assign({}, this.hsv, {h: hue});
+      }
+
+      let bgColor = this._getHueColor(hue).toRgbString();
+      this.style.background = `linear-gradient(to right, #ffffff, ${bgColor})`;
+    },
+
+    _onTrack(event) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      switch (event.detail.state) {
+        case 'start': this._trackStart(event); break;
+        case 'track': this._track(event); break;
+        case 'end': this._trackEnd(event); break;
+      }
+    },
+
+    _trackStart(event) {
+      this._setDragging(true);
+      this._updateRects();
+      this.$.handler.style.willChange = 'transform';
+    },
+
+    _track(event) {
+      let x = event.detail.x - this._rect.left;
+      let y = event.detail.y - this._rect.top;
+      let s = Math.min(1, Math.max(0, x / this._rect.width));
+      let v = Math.min(1, Math.max(0, 1 - y / this._rect.height));
+      s = Math.round(s * 100) / 100;
+      v = Math.round(v * 100) / 100;
+      let hsv = {h: this.hue, s: s, v: v};
+      this.hsv = hsv;
+      requestAnimationFrame(() => this._positionizeHandler());
+    },
+
+    _trackEnd(event) {
+      this._setDragging(false);
+      this.$.handler.style.willChange = '';
+    },
+
+    _onDown(event) {
+      event.preventDefault();
+      this._trackStart(event);
+      this._track(event);
+      this._trackEnd(event);
+    },
+
+    _positionizeHandler() {
+      if (!this._rect) {
+        this._updateRects();
+      }
+
+      let handlerRadius = this._handlerRect.width / 2;
+      let x = this.hsv.s * this._rect.width - handlerRadius;
+      let y = this._rect.height - this.hsv.v * this._rect.height - handlerRadius;
+      x = Math.min(this._rect.width - handlerRadius, Math.max(-handlerRadius, x));
+      y = Math.min(this._rect.height - handlerRadius, Math.max(-handlerRadius, y));
+      this.$.handler.style.transform = `translate(${x}px, ${y}px)`;
+    },
+
+    _updateRects() {
+      this._rect = this.getBoundingClientRect();
+      this._handlerRect = this.$.handler.getBoundingClientRect();
+    },
+
+    _getHueColor(hue) {
+      return tinycolor({h: hue, s: 1, v: 1});
+    }
+
+  });
+
+}());
+</script>

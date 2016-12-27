@@ -1,0 +1,306 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../iron-form-element-behavior/iron-form-element-behavior.html">
+<link rel="import" href="../iron-range-behavior/iron-range-behavior.html">
+
+<!--
+`slider-input` is a control that allows the user to select a value within a range.
+
+Use the following attributes to specify restrictions: `min`, `max`, `step`
+and `value`.
+
+Example:
+
+    <slider-input min="10" max="200" value="110" step="10"></slider-input>
+
+### Styling
+
+The following custom properties and mixins are available for styling.
+
+Custom property | Description | Default
+----------------|-------------|----------
+`--slider-input-bar-color` | The background color of the slider | `--grey-350`
+`--slider-input-active-color` | The progress bar color | `--primary-color`
+`--slider-input-knob-color` | The knob color | `--blue-700`
+`--slider-input-disabled-knob-color` | The disabled knob color | `--grey-400`
+`--slider-input-disabled-active-color` | The disabled progress bar color | `--grey-400`
+`--slider-input-knob-start-color` | The fill color of the knob at the far left | `transparent`
+`--slider-input-height` | Height of the progress bar | `3px`
+`--slider-input-input` | Mixin applied to the input in editable mode | `{}`
+
+@group Form Elements
+@element slider-input
+@demo demo/index.html
+-->
+
+<dom-module id="slider-input">
+  <template>
+    <style is="custom-style">
+      :host {
+        --knob-height: 8px;
+        --calculated-slider-height: var(--slider-input-height, 3px);
+        --calculated-total-height: calc(var(--knob-height) + var(--calculated-slider-height));
+        --calculated-active-color: var(--slider-input-active-color, blue);
+        --calculated-bar-color: var(--slider-input-bar-color, #eee);
+
+        cursor: default;
+
+        @apply(--layout);
+        @apply(--layout-center);
+        @apply(--layout-justified);
+        @apply(--unselectable);
+      }
+
+      :host(:focus) {
+        outline: none;
+      }
+
+      #sliderContainer {
+        display: block;
+        height: var(--calculated-total-height);
+        position: relative;
+        width: 100%;
+      }
+
+      #barContainer {
+        background: var(--calculated-bar-color);
+        bottom: 0;
+        height: var(--calculated-slider-height);
+        margin: auto;
+        position: absolute;
+        top: 0;
+        width: 100%;
+      }
+
+      #barProgress {
+        background-color: var(--calculated-active-color);
+        height: 100%;
+        transform-origin: top left;
+        transform: scale3d(0, 1, 1);
+        width: 100%;
+      }
+
+      #knobContainer {
+        height: 100%;
+        position: relative;
+        width: calc(100% - (var(--knob-height) + var(--calculated-slider-height) - 1px));
+      }
+
+      #knob {
+        background: var(--calculated-active-color);
+        border-radius: 50%;
+        height: var(--calculated-total-height);
+        width: var(--calculated-total-height);
+
+        position: absolute;
+        bottom: 0;
+        top: 0;
+        left: 0;
+        margin: auto;
+
+        @apply(--slider-input-knob);
+      }
+
+      /* disabled */
+      :host([disabled]) {
+        pointer-events: none;
+      }
+
+      :host([disabled]) #knob,
+      :host([disabled]) #barProgress {
+        background: var(--slider-input-disabled-active-color, #ddd);
+      }
+
+      :host([disabled]) #barContainer {
+        background: var(--slider-input-disabled-bar-color, #eee);
+      }
+
+    </style>
+
+    <div id="sliderContainer" on-mousedown="_startDrag">
+
+      <div id="barContainer">
+        <div id="barProgress"></div>
+      </div>
+
+      <div id="knobContainer">
+        <div id="knob" on-down="_knobDown"></div>
+      </div>
+    </div>
+
+  </template>
+</dom-module>
+
+<script>
+(function() {
+  'use strict';
+
+  Polymer({
+
+    is: 'slider-input',
+
+    hostAttributes: {
+      'role': 'slider',
+      'tabindex': '0'
+    },
+
+    behaviors: [
+      Polymer.IronFormElementBehavior,
+      Polymer.IronRangeBehavior
+    ],
+
+    properties: {
+
+      /**
+       * True when the user is dragging the slider.
+       */
+      dragging: {
+        type: Boolean,
+        value: false,
+        readOnly: true
+      },
+
+    },
+
+    listeners: {
+      'blur': '_onBlur'
+    },
+
+    observers: [
+      '_valueChanged(value, min, max, step)'
+    ],
+
+    get _inputElement() {
+      if (!this.__inputElement) {
+        this.__inputElement = this.root.querySelector('form-input');
+      }
+      return this.__inputElement;
+    },
+
+    created() {
+      this.__drag = this._drag.bind(this);
+      this.__endDrag = this._endDrag.bind(this);
+    },
+
+    ready() {
+      requestIdleCallback(() => {
+        this._updateRects();
+        this._isReady = true;
+        this._valueChanged(this.value, this.min, this.max);
+        this._positionizeKnob();
+        this._toggleListeners(true);
+      });
+    },
+
+    detached() {
+      this._toggleListeners();
+    },
+
+    _toggleListeners(enable) {
+      let m = enable ? 'addEventListener' : 'removeEventListener';
+      document[m]('mousemove', this.__drag);
+      document[m]('mouseup', this.__endDrag);
+    },
+
+    _valueChanged(value, min, max) {
+      if (!this._isReady) {
+        return;
+      }
+
+      let ratio = this._calcRatio(value);
+      this._setRatio(ratio);
+      this._positionizeKnob(this.dragging);
+      this.$.barProgress.style.transform = `scale3d(${ratio}, 1, 1)`;
+
+      this.fire('did-change-value');
+    },
+
+    /**
+     * Move the knob from the current value.
+     *
+     * @param  {Boolean} transform - Whether the knob should be positionized
+     *  using transform.
+     */
+    _positionizeKnob(transform) {
+      if (transform) {
+        let translateX = Math.round(this.ratio * this._rect.width);
+        this.translate3d(`${translateX}px`, 0, 0, this.$.knob);
+        this.$.knob.style.left = null;
+      } else {
+        this.$.knob.style.transform = null;
+        this.$.knob.style.left = this.ratio * 100 + '%';
+      }
+    },
+
+    _startDrag(event) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Start drag
+      this._updateRects();
+      this._setDragging(true);
+      this._positionizeKnob(true);
+
+      // Move knob on down
+      this._drag(event);
+    },
+
+    _drag(event) {
+      if (!this.dragging) {
+        return;
+      }
+
+      // Drag
+      event.preventDefault();
+      event.stopPropagation();
+
+      let x = Math.min(this._rect.width,
+        Math.max(0, event.x  - this._knobWidth/2 - this._rect.left));
+
+      let value = this._calcStep(this._calcKnobPosition(x / this._rect.width));
+
+      this.value = value;
+    },
+
+    _endDrag(event) {
+      // Stop drag
+      this._setDragging(false);
+      this._positionizeKnob();
+      this.fire('did-change');
+    },
+
+    _onBlur() {
+      this._setDragging(false);
+    },
+
+    _updateRects() {
+      this._rect = this.$.knobContainer.getBoundingClientRect();
+      this._knobWidth = this.$.knob.offsetWidth;
+    },
+
+    _calcKnobPosition(ratio) {
+      return (this.max - this.min) * ratio + this.min;
+    },
+
+    _knobDown(event) {
+      // Cancel selection.
+      event.preventDefault();
+      this.focus();
+    }
+
+  });
+
+  /**
+   * Fired when the slider's value changes.
+   *
+   * @event did-change-value
+   */
+
+  /**
+   * Fired when the slider's value changes due to user interaction.
+   *
+   * @event did-change
+   */
+
+}());
+</script>

@@ -1,17 +1,34 @@
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="color-input-overlay.html">
 
-<!--
-`color-input`
-
-@demo demo/index.html 
--->
 <dom-module id="color-input">
   <template>
     <style>
       :host {
         display: block;
+        position: relative;
+      }
+
+      .color-preview {
+        background: red;
+        border-radius: 2px;
+        bottom: 4px;
+        left: 4px;
+        margin: auto;
+        position: absolute;
+        top: 4px;
+        width: 12px;
+        @apply(--color-input-preview);
+      }
+
+      #input {
+        padding-left: 18px;
+        @apply(--color-input);
       }
     </style>
+
+    <div class="color-preview" style$="[[_computeColorPreviewStyle(value)]]"></div>
+    <input id="input" type="text" on-tap="_inputTapped"/>
 
   </template>
 </dom-module>
@@ -22,7 +39,54 @@
 
   Polymer({
 
-    is: 'color-input'
+    is: 'color-input',
+
+    properties: {
+
+      /**
+       * CSS color value.
+       * (Hexadecimal, RGB, RGBA, HSL, HSLA, Predefined/Cross-browser color names).
+       */
+      value: {
+        type: String,
+        value: '#fff',
+        observer: '_valueChanged',
+        notify: true
+      },
+
+      _overlay: Object
+
+    },
+
+    _inputTapped() {
+      if (this._overlay) {
+        this._overlay.remove();
+      } else {
+        this._overlay = this.create('color-input-overlay', {
+          onDetach: _ => {
+            this._overlay = null;
+          },
+          value: this.value,
+          opened: true
+        });
+
+        this._overlay.addEventListener('value-changed', _ => {
+          this.value = this._overlay.value;
+        });
+      }
+    },
+
+    _valueChanged(value) {
+      this.$.input.value = value;
+
+      if (this._overlay) {
+        this._overlay.value = value;
+      }
+    },
+
+    _computeColorPreviewStyle(value) {
+      return 'background:' + value;
+    }
 
   });
 

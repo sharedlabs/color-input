@@ -3,26 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
-
     <title>color-input demo</title>
-
     <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
-
-    <link rel="import" href="../../iron-demo-helpers/demo-pages-shared-styles.html">
-    <link rel="import" href="../../iron-demo-helpers/demo-snippet.html">
     <link rel="import" href="../color-input.html">
 
-    <style is="custom-style" include="demo-pages-shared-styles">
+    <style is="custom-style">
+      body {
+        font-family: sans-serif;
+      }
     </style>
   </head>
   <body>
-    <div class="vertical-section-container centered">
-      <h3>Basic color-input demo</h3>
-      <demo-snippet>
-        <template>
-          <color-input></color-input>
-        </template>
-      </demo-snippet>
-    </div>
+    <color-input></color-input>
   </body>
 </html>

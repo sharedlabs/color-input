@@ -1,0 +1,308 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../overlay-container/overlay-behavior.html">
+<link rel="import" href="../tinycolor/tinycolor.html">
+<link rel="import" href="color-input-canvas.html">
+<link rel="import" href="slider-input.html">
+
+<dom-module id="color-input-overlay">
+  <template>
+    <style>
+      :host {
+        -webkit-user-select: none;
+        background: white;
+        box-sizing: border-box;
+        display: inline-block;
+        user-select: none;
+        width: 220px;
+        box-shadow: 0 1px 1px 0 #bbb;
+
+        --slider-input-bar-color: transparent;
+      }
+
+      #hueInput {
+        background: linear-gradient(to right, #FF0000 0%, #FFFF00 13%, #0BED00 25%, #00FF40 38%, #00FFFF 50%, #0040FF 64%, #8000FF 75%, #FF00FF 88%, #FF0000 100%);
+      }
+
+      #colorPreview {
+        border-radius: 26px;
+        border-radius: 50%;
+        border: 1px solid transparent;
+        height: 28px;
+        margin-right: 15px;
+        width: 28px;
+      }
+
+      /* controls */
+      .controls {
+        padding: 10px;
+      }
+
+      .controls__row {
+        @apply(--layout-horizontal);
+        @apply(--layout-center);
+        padding-bottom: 10px;
+      }
+
+      .controls__row--last {
+        padding-bottom: 0;
+      }
+
+      /* sliders */
+      .sliders {
+        @apply(--layout-flex);
+      }
+
+      .sliders__item {
+        margin-bottom: 10px;
+        border-radius: 2px;
+      }
+
+      .sliders__item--last {
+        margin-bottom: 0;
+      }
+
+      /* form */
+      .form {
+        @apply(--layout-flex);
+      }
+
+      .form__row:not(.active) {
+        display: none;
+      }
+
+      .form__row {
+        @apply(--layout-horizontal);
+        @apply(--layout-center);
+      }
+
+      .form__item {
+        @apply(--layout-flex);
+        margin-right: 6px;
+      }
+
+      .form__item--last {
+        margin-right: 0;
+      }
+
+      .form__input {
+        border-radius: 2px;
+        border: 1px solid #ddd;
+        box-sizing: border-box;
+        font-family: sans-serif;
+        outline: 0;
+        padding: 4px 6px;
+        width: 100%;
+      }
+
+      .form__label {
+        color: #888;
+        font-size: 12px;
+        margin-top: 5px;
+        text-align: center;
+      }
+
+      .form__input::-webkit-inner-spin-button, 
+      .form__input::-webkit-outer-spin-button { 
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        margin: 0; 
+      }
+    </style>
+
+    <!-- color input canvas needs a hsv -->
+    <color-input-canvas
+        hue="[[_hsv.h]]"
+        hsv="{{_hsv}}"></color-input-canvas>
+
+    <div class="controls">
+      <div class="controls__row">
+        <div id="colorPreview" style$="[[_computeColorPreviewStyle(value)]]"></div>
+        <div class="sliders">
+          <slider-input id="hueInput" class="sliders__item" min="0" max="360" value="{{_hsv.h}}"></slider-input>
+          <slider-input id="alphaInput" class="sliders__item sliders__item--last" min="0" max="1" step="0.01" value="{{_alpha}}"></slider-input>        
+       </div>
+      </div>
+
+      <div class="controls__row controls__row--last">
+        <div id="form" class="form">
+          <div name="hex" class="form__row">
+            <div class="form__item form__item--last">
+              <input class="form__input" value="[[_hex]]" on-input="_onHexInput"/>
+              <div class="form__label">HEX</div>
+            </div>
+          </div>
+
+          <div name="rgb" class="form__row">
+            <div class="form__item">
+              <input name="r" class="form__input" value="[[_rgb.r]]" type="number" min="0" on-input="_onRgbInput"/>
+              <div class="form__label">R</div>            
+            </div>
+            <div class="form__item">
+              <input name="g" class="form__input" value="[[_rgb.g]]" type="number" min="0" on-input="_onRgbInput"/>
+              <div class="form__label">G</div>            
+            </div>
+            <div class="form__item">
+              <input name="b" class="form__input" value="[[_rgb.b]]" type="number" min="0" on-input="_onRgbInput"/>
+              <div class="form__label">B</div>            
+            </div>
+            <div class="form__item form__item--last">
+              <input name="a" class="form__input" value="[[_rgb.a]]" type="number" step="0.01" max="1" min="0" on-input="_onRgbInput"/>
+              <div class="form__label">A</div>            
+            </div>
+          </div>
+        </div>
+
+        <svg id="unfoldIcon" on-tap="_nextFormat" style="width: 22px; height: 22px;" viewBox="0 0 24 24">
+          <path d="M12,18.17L8.83,15L7.42,16.41L12,21L16.59,16.41L15.17,15M12,5.83L15.17,9L16.58,7.59L12,3L7.41,7.59L8.83,9L12,5.83Z"/>
+        </svg>
+      </div>
+    </div>
+
+  </template>
+</dom-module>
+
+<script>
+(function() {
+  'use strict';
+
+  Polymer({
+
+    is: 'color-input-overlay',
+
+    behaviors: [
+      OverlayBehavior
+    ],
+
+    properties: {
+
+      value: {
+        type: String,
+        notify: true,
+        observer: '_valueChanged'
+      },
+
+      format: {
+        type: String,
+        value: 'hex',
+        observer: '_formatChanged'
+      },
+
+      // Color values
+      _hex: String,
+
+      _rgb: Object,
+
+      _hsv: {
+        type: Object,
+        observer: '_onHsvChanged'
+      },
+
+      _alpha: {
+        type: Number,
+        observer: '_onAlphaChanged'
+      }
+
+    },
+
+    _valueChanged(value) {
+      const tcolor = tinycolor(value);
+
+      if (tcolor.isValid) {
+        this._hex = tcolor.toString('hex3');
+        this._rgb = tcolor.toRgb();
+        this._hsv = tcolor.toHsv();
+        // this._hue
+        this._alpha = this._rgb.a;
+      }
+    },
+
+    _updateValue(value = this.value) {
+      if (this._alpha < 1 && this.format === 'hex') {
+        this.format = 'rgb';
+        return;
+      }
+
+      let color = tinycolor(value);
+      color.setAlpha(this._alpha);
+
+      switch (this.format) {
+        case 'rgb':
+          value = color.toRgbString();
+          break;
+        default:
+          value = color.toString('hex3');
+          break;
+      }
+
+      this.value = value;
+    },
+
+    _onHsvChanged(event) {
+      this._updateValue(this._hsv);
+    },
+
+    _onAlphaChanged() {
+      this._updateValue();
+    },
+
+    _nextFormat() {
+      if (this._alpha === 1) {
+        this.format = this.format === 'hex' ? 'rgb' : 'hex';
+      }
+    },
+
+    _formatChanged(format) {
+      if (['hex', 'rgb'].indexOf(format) < 0) {
+        this.format = 'hex';
+        return;
+      }
+
+      for (let i = 0; i < this.$.form.children.length; i++) {
+        const child = this.$.form.children[i];
+
+        if (child.getAttribute('name') === format) {
+          child.classList.add('active');
+        } else {
+          child.classList.remove('active');
+        }
+      }
+
+      this._updateValue();
+    },
+
+    _onHexInput(event) {
+      const tcolor = tinycolor(event.currentTarget.value);
+
+      if (tcolor.isValid()) {
+        this._hex = event.currentTarget.value;
+        this._updateValue(this._hex);
+      }
+    },
+
+    _onRgbInput(event) {
+      const channel = event.currentTarget.getAttribute('name');
+      this._rgb[channel] = event.currentTarget.value;
+      this._updateValue(this._rgb);
+
+      if (channel === 'a') {
+        this._alpha = event.currentTarget.value;
+      }
+    },
+
+    _computeColorPreviewStyle(value) {
+      const contrastRatio = tinycolor.readability('white', value);
+      let style = `background-color: ${value};`
+
+      if (contrastRatio <= 1.3) {
+        style += `border-color: #ddd;`
+      }
+
+      return style;
+    }
+
+  });
+
+}());
+</script>
