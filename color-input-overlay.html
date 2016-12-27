@@ -120,8 +120,21 @@
       <div class="controls__row">
         <div id="colorPreview" style$="[[_computeColorPreviewStyle(value)]]"></div>
         <div class="sliders">
-          <slider-input id="hueInput" class="sliders__item" min="0" max="360" value="{{_hsv.h}}"></slider-input>
-          <slider-input id="alphaInput" class="sliders__item sliders__item--last" min="0" max="1" step="0.01" value="{{_alpha}}"></slider-input>        
+          <slider-input
+              id="hueInput"
+              class="sliders__item"
+              min="0"
+              max="360"
+              value="{{_hsv.h}}"
+              on-value-changed="_onHsvChanged"></slider-input>
+
+          <slider-input
+              id="alphaInput"
+              class="sliders__item sliders__item--last"
+              min="0"
+              max="1"
+              step="0.01"
+              value="{{_alpha}}"></slider-input>        
        </div>
       </div>
 
@@ -136,15 +149,15 @@
 
           <div name="rgb" class="form__row">
             <div class="form__item">
-              <input name="r" class="form__input" value="[[_rgb.r]]" type="number" min="0" on-input="_onRgbInput"/>
+              <input name="r" class="form__input" value="[[_rgb.r]]" type="number" min="0" max="255" on-input="_onRgbInput"/>
               <div class="form__label">R</div>            
             </div>
             <div class="form__item">
-              <input name="g" class="form__input" value="[[_rgb.g]]" type="number" min="0" on-input="_onRgbInput"/>
+              <input name="g" class="form__input" value="[[_rgb.g]]" type="number" min="0" max="255" on-input="_onRgbInput"/>
               <div class="form__label">G</div>            
             </div>
             <div class="form__item">
-              <input name="b" class="form__input" value="[[_rgb.b]]" type="number" min="0" on-input="_onRgbInput"/>
+              <input name="b" class="form__input" value="[[_rgb.b]]" type="number" min="0" max="255" on-input="_onRgbInput"/>
               <div class="form__label">B</div>            
             </div>
             <div class="form__item form__item--last">
@@ -207,15 +220,13 @@
     },
 
     _valueChanged(value) {
+      console.log(value)
       const tcolor = tinycolor(value);
 
-      if (tcolor.isValid) {
-        this._hex = tcolor.toString('hex3');
-        this._rgb = tcolor.toRgb();
-        this._hsv = tcolor.toHsv();
-        // this._hue
-        this._alpha = this._rgb.a;
-      }
+      this._hex = tcolor.toString('hex3');
+      this._rgb = tcolor.toRgb();
+      this._hsv = tcolor.toHsv();
+      this._alpha = this._rgb.a;
     },
 
     _updateValue(value = this.value) {
@@ -226,6 +237,11 @@
 
       let color = tinycolor(value);
       color.setAlpha(this._alpha);
+
+      const contrastRatio = tinycolor.readability(color, this.value);
+      if (contrastRatio === 1) {
+        return;
+      }
 
       switch (this.format) {
         case 'rgb':
@@ -239,7 +255,7 @@
       this.value = value;
     },
 
-    _onHsvChanged(event) {
+    _onHsvChanged() {
       this._updateValue(this._hsv);
     },
 
@@ -284,10 +300,11 @@
     _onRgbInput(event) {
       const channel = event.currentTarget.getAttribute('name');
       this._rgb[channel] = event.currentTarget.value;
-      this._updateValue(this._rgb);
 
       if (channel === 'a') {
         this._alpha = event.currentTarget.value;
+      } else {
+        this._updateValue(this._rgb);
       }
     },
 

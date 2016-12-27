@@ -23,10 +23,10 @@
         border: 1px solid white;
         box-shadow: 0 0 1px 0 #333;
         box-sizing: border-box;
-        height: 12px;
+        height: 14px;
         pointer-events: none;
         position: absolute;
-        width: 12px;
+        width: 14px;
       }
     </style>
 
@@ -81,7 +81,10 @@
       }
 
       this.hue = Math.round(hsv.h);
-      requestAnimationFrame(() => this._positionizeHandler());
+
+      requestAnimationFrame(() => {
+        this._positionizeHandler();
+      });
     },
 
     _hueChanged(hue) {
@@ -119,7 +122,9 @@
       v = Math.round(v * 100) / 100;
       let hsv = {h: this.hue, s: s, v: v};
       this.hsv = hsv;
-      requestAnimationFrame(() => this._positionizeHandler());
+      requestAnimationFrame(() => {
+        this._positionizeHandler();
+      });
     },
 
     _trackEnd(event) {
