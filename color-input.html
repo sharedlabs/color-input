@@ -6,29 +6,33 @@
     <style>
       :host {
         display: block;
-        position: relative;
+        width: 100%;
       }
 
-      .color-preview {
-        background: red;
-        border-radius: 2px;
-        bottom: 4px;
-        left: 4px;
+
+      #inputContainer {
+        padding-left: 26px;
+        position: relative;
+        width: 100%;
+      }
+
+      #colorSwatch {
+        border-radius: 50%;
+        border: 1px solid #666;
+        bottom: 0;
+        height: 16px;
+        left: 0;
         margin: auto;
         position: absolute;
-        top: 4px;
-        width: 12px;
-        @apply(--color-input-preview);
-      }
-
-      #input {
-        padding-left: 18px;
-        @apply(--color-input);
+        top: 0;
+        width: 16px;
       }
     </style>
 
-    <div class="color-preview" style$="[[_computeColorPreviewStyle(value)]]"></div>
-    <input id="input" type="text" on-tap="_inputTapped"/>
+    <div id="inputContainer" on-tap="_inputTapped">
+      <div id="colorSwatch" style$="[[_computeColorPreviewStyle(_value)]]"></div>
+      <content select="input" id="slot"></content>
+    </div>
 
   </template>
 </dom-module>
@@ -43,50 +47,44 @@
 
     properties: {
 
-      /**
-       * CSS color value.
-       * (Hexadecimal, RGB, RGBA, HSL, HSLA, Predefined/Cross-browser color names).
-       */
-      value: {
-        type: String,
-        value: '#fff',
-        observer: '_valueChanged',
-        notify: true
-      },
+      _value: String,
 
       _overlay: Object
 
+    },
+
+    get input() {
+      return Polymer.dom(this.$.slot).getDistributedNodes()[0]
+    },
+
+    attached() {
+      this._value = this.input.value;
     },
 
     _inputTapped(event) {
       if (this._overlay) {
         this._overlay.remove();
       } else {
+        this._value = this.input.value;
+
         this._overlay = this.create('color-input-overlay', {
           onDetach: _ => {
             this._overlay = null;
           },
-          value: this.value,
-          positionTarget: event.currentTarget,
+          value: this.input.value,
+          positionTarget: this.$.colorSwatch,
           opened: true
         });
 
         this._overlay.addEventListener('value-changed', _ => {
-          this.value = this._overlay.value;
+          this.input.value = this._overlay.value;
+          this._value = this.input.value;
         });
       }
     },
 
-    _valueChanged(value) {
-      this.$.input.value = value;
-
-      if (this._overlay) {
-        this._overlay.value = value;
-      }
-    },
-
-    _computeColorPreviewStyle(value) {
-      return 'background:' + value;
+    _computeColorPreviewStyle(_value) {
+      return `background-color: ${_value};`
     }
 
   });

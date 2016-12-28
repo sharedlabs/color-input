@@ -14,7 +14,7 @@
         box-sizing: border-box;
         display: inline-block;
         user-select: none;
-        position: absolute;
+        position: fixed;
         border-radius: 2px;
         box-shadow: 0 1px 20px 2px rgba(0, 0, 0, 0.2);
         width: 280px;
@@ -381,23 +381,19 @@
       const rect = this.getBoundingClientRect();
       const fitRect = this._getNormalizedRect(this.fitTarget);
       const positionRect = this.positionTarget.getBoundingClientRect();
-      let top, bottom, right, left, transformOrigin;
+      let top, bottom, right, left;
       if (fitRect.height - positionRect.bottom >= rect.height) {
         top = positionRect.top + 'px';
-        transformOrigin = 'top';
       } else {
-        bottom = 0 + 'px';
-        transformOrigin = 'bottom';
+        bottom = positionRect.bottom + 'px';
       }
       if (positionRect.right >= rect.width) {
-        right = fitRect.width - positionRect.right + 'px';
-        transformOrigin += ' right';
-      } else {
         left = positionRect.left + 'px';
-        transformOrigin += ' left';
+      } else {
+        right = fitRect.width - positionRect.right + 'px';
       }
-      Object.assign(this.style,
-        {top, bottom, right, left, transformOrigin});
+
+      Object.assign(this.style, {top, bottom, right, left});
     },
 
    _getNormalizedRect(target) {

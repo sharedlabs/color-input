@@ -7,7 +7,6 @@
       :host {
         display: block;
         height: 125px;
-        overflow: hidden;
         position: relative;
         width: 100%;
       }
@@ -30,7 +29,7 @@
       }
     </style>
 
-    <div id="handler"></div>
+    <div id="handler" style$="[[_computeHandlerStyle(hsv)]]"></div>
     <div id="overlay"></div>
 
   </template>
@@ -151,6 +150,10 @@
 
     _getHueColor(hue) {
       return tinycolor({h: hue, s: 1, v: 1});
+    },
+
+    _computeHandlerStyle(hsv) {
+      return 'background: #' + tinycolor(hsv).toHex();
     }
 
   });
