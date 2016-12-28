@@ -57,8 +57,10 @@
       return Polymer.dom(this.$.slot).getDistributedNodes()[0]
     },
 
-    attached() {
-      this._value = this.input.value;
+    ready() {
+      this.async(_ => {
+        this._value = this.input.value;
+      });
     },
 
     _swatchTapped(event) {
