@@ -6,6 +6,7 @@
     <style>
       :host {
         display: block;
+        width: 100%;
       }
 
       #inputContainer {
@@ -18,6 +19,7 @@
         border-radius: 50%;
         border: 1px solid #666;
         bottom: 0;
+        cursor: pointer;
         height: 16px;
         left: 0;
         margin: auto;
@@ -27,8 +29,8 @@
       }
     </style>
 
-    <div id="inputContainer" on-tap="_inputTapped">
-      <div id="colorSwatch" style$="[[_computeColorPreviewStyle(_value)]]"></div>
+    <div id="inputContainer" >
+      <div id="colorSwatch" on-tap="_swatchTapped" style$="[[_computeColorPreviewStyle(_value)]]"></div>
       <content select="input" id="slot"></content>
     </div>
 
@@ -59,7 +61,7 @@
       this._value = this.input.value;
     },
 
-    _inputTapped(event) {
+    _swatchTapped(event) {
       if (this._overlay) {
         this._overlay.remove();
       } else {
