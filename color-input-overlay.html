@@ -14,10 +14,21 @@
         box-sizing: border-box;
         display: inline-block;
         user-select: none;
-        width: 220px;
-        box-shadow: 0 1px 1px 0 #bbb;
+        position: absolute;
+        border-radius: 2px;
+        box-shadow: 0 1px 20px 2px rgba(0, 0, 0, 0.2);
+        width: 280px;
 
         --slider-input-bar-color: transparent;
+        --slider-input-active-color: transparent;
+        --slider-input-height: 5px;
+
+        --slider-input-knob: {
+          background: white;
+          box-shadow: 0 1px 1px 1px rgba(0,0,0,0.2);
+          height: 18px;
+          width: 18px;
+        }
       }
 
       #hueInput {
@@ -28,24 +39,24 @@
         border-radius: 26px;
         border-radius: 50%;
         border: 1px solid transparent;
-        height: 28px;
+        height: 36px;
         margin-right: 15px;
-        width: 28px;
+        width: 36px;
       }
 
       /* controls */
       .controls {
-        padding: 10px;
+        padding: 20px;
       }
 
       .controls__row {
         @apply(--layout-horizontal);
-        @apply(--layout-center);
-        padding-bottom: 10px;
+        @apply(--layout-start);
+        margin-bottom: 20px;
       }
 
       .controls__row--last {
-        padding-bottom: 0;
+        margin-bottom: 0;
       }
 
       /* sliders */
@@ -54,8 +65,8 @@
       }
 
       .sliders__item {
-        margin-bottom: 10px;
-        border-radius: 2px;
+        margin-bottom: 12px;
+        border-radius: 20px;
       }
 
       .sliders__item--last {
@@ -113,7 +124,7 @@
 
     <!-- color input canvas needs a hsv -->
     <color-input-canvas
-        hue="[[_hsv.h]]"
+        id="canvas"
         hsv="{{_hsv}}"></color-input-canvas>
 
     <div class="controls">
@@ -125,12 +136,14 @@
               class="sliders__item"
               min="0"
               max="360"
+              step="1"
               value="{{_hsv.h}}"
               on-value-changed="_onHsvChanged"></slider-input>
 
           <slider-input
               id="alphaInput"
               class="sliders__item sliders__item--last"
+              style$="[[_computeAlphaStyle(value)]]"
               min="0"
               max="1"
               step="0.01"
@@ -202,6 +215,25 @@
         observer: '_formatChanged'
       },
 
+      /**
+       * The element that should be used to position the element. If not set, it will
+       * be centered on the screen.
+       * @type {!Element}
+       */
+      positionTarget: Object,
+
+      // The element to fit `this` into.
+      fitTarget: {
+        type: Object,
+        value: window
+      },
+
+      // @override
+      cancelOnOutsideClick: {
+        type: Boolean,
+        value: true
+      },
+
       // Color values
       _hex: String,
 
@@ -219,14 +251,21 @@
 
     },
 
+    listeners: {
+      'overlay-opened': '_overlayOpened',
+      'overlay-closed': '_overlayClosed'
+    },
+
     _valueChanged(value) {
-      console.log(value)
       const tcolor = tinycolor(value);
 
       this._hex = tcolor.toString('hex3');
       this._rgb = tcolor.toRgb();
-      this._hsv = tcolor.toHsv();
       this._alpha = this._rgb.a;
+
+      if (!this.$.canvas.dragging) {
+        this._hsv = tcolor.toHsv();
+      }
     },
 
     _updateValue(value = this.value) {
@@ -239,7 +278,7 @@
       color.setAlpha(this._alpha);
 
       const contrastRatio = tinycolor.readability(color, this.value);
-      if (contrastRatio === 1) {
+      if (contrastRatio === 1 && tinycolor(this.value)._a === this._alpha) {
         return;
       }
 
@@ -255,8 +294,18 @@
       this.value = value;
     },
 
+    _overlayOpened() {
+      this._positionize();
+    },
+    
+    _overlayClosed() {
+      this.remove();
+    },
+
     _onHsvChanged() {
-      this._updateValue(this._hsv);
+      if (this._hsv) {
+        this._updateValue(this._hsv);        
+      }
     },
 
     _onAlphaChanged() {
@@ -299,7 +348,7 @@
 
     _onRgbInput(event) {
       const channel = event.currentTarget.getAttribute('name');
-      this._rgb[channel] = event.currentTarget.value;
+      this._rgb[channel] = Number(event.currentTarget.value);
 
       if (channel === 'a') {
         this._alpha = event.currentTarget.value;
@@ -317,6 +366,52 @@
       }
 
       return style;
+    },
+
+    _computeAlphaStyle(value) {
+      let hexColor = tinycolor(value).toHexString();
+      return `background: linear-gradient(to right, rgba(0,0,0,0), ${hexColor}), url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAADNJREFUOBFjvHHjxn8GPEBDQ4MRjzQDEz5JYuRGDWAYBIGIN45B0UgonYxG42CIRopjAQAbjQemQaw2YQAAAABJRU5ErkJggg==')`;
+    },
+
+    /**
+     * Position the content div to the positionTarget.
+     * top/right align have priority.
+     */
+    _positionize() {
+      const rect = this.getBoundingClientRect();
+      const fitRect = this._getNormalizedRect(this.fitTarget);
+      const positionRect = this.positionTarget.getBoundingClientRect();
+      let top, bottom, right, left, transformOrigin;
+      if (fitRect.height - positionRect.bottom >= rect.height) {
+        top = positionRect.top + 'px';
+        transformOrigin = 'top';
+      } else {
+        bottom = 0 + 'px';
+        transformOrigin = 'bottom';
+      }
+      if (positionRect.right >= rect.width) {
+        right = fitRect.width - positionRect.right + 'px';
+        transformOrigin += ' right';
+      } else {
+        left = positionRect.left + 'px';
+        transformOrigin += ' left';
+      }
+      Object.assign(this.style,
+        {top, bottom, right, left, transformOrigin});
+    },
+
+   _getNormalizedRect(target) {
+      if (target === document.documentElement || target === window) {
+        return {
+          top: 0,
+          left: 0,
+          width: window.innerWidth,
+          height: window.innerHeight,
+          right: window.innerWidth,
+          bottom: window.innerHeight
+        };
+      }
+      return target.getBoundingClientRect();
     }
 
   });

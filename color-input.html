@@ -58,7 +58,7 @@
 
     },
 
-    _inputTapped() {
+    _inputTapped(event) {
       if (this._overlay) {
         this._overlay.remove();
       } else {
@@ -67,6 +67,7 @@
             this._overlay = null;
           },
           value: this.value,
+          positionTarget: event.currentTarget,
           opened: true
         });
 

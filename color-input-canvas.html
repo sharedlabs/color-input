@@ -20,13 +20,13 @@
 
       #handler {
         border-radius: 50%;
-        border: 1px solid white;
-        box-shadow: 0 0 1px 0 #333;
+        border: 2px solid white;
+        box-shadow: 0px 1px 1px 0 rgba(0,0,0,0.2);
         box-sizing: border-box;
-        height: 14px;
+        height: 20px;
         pointer-events: none;
         position: absolute;
-        width: 14px;
+        width: 20px;
       }
     </style>
 
@@ -55,13 +55,6 @@
         readOnly: true
       },
 
-      // from 0 to 360
-      hue: {
-        type: Number,
-        notify: true,
-        observer: '_hueChanged'
-      },
-
       hsv: {
         type: Object,
         notify: true,
@@ -69,6 +62,10 @@
       }
 
     },
+
+    observers: [
+      '_hueChanged(hsv.h)'
+    ],
 
     listeners: {
       'track': '_onTrack',
@@ -80,18 +77,13 @@
         return;
       }
 
-      this.hue = Math.round(hsv.h);
-
       requestAnimationFrame(() => {
         this._positionizeHandler();
       });
     },
 
     _hueChanged(hue) {
-      if (this.hsv && this.hsv.h !== hue) {
-        this.hsv = Object.assign({}, this.hsv, {h: hue});
-      }
-
+      // hue is from 0 to 360
       let bgColor = this._getHueColor(hue).toRgbString();
       this.style.background = `linear-gradient(to right, #ffffff, ${bgColor})`;
     },
@@ -120,7 +112,7 @@
       let v = Math.min(1, Math.max(0, 1 - y / this._rect.height));
       s = Math.round(s * 100) / 100;
       v = Math.round(v * 100) / 100;
-      let hsv = {h: this.hue, s: s, v: v};
+      let hsv = {h: this.hsv.h, s: s, v: v};
       this.hsv = hsv;
       requestAnimationFrame(() => {
         this._positionizeHandler();
