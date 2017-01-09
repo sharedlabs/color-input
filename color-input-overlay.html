@@ -396,7 +396,7 @@
       } else {
         bottom = positionRect.bottom + 'px';
       }
-      if (positionRect.right >= rect.width) {
+      if (fitRect.width - rect.left >= rect.width) {
         left = positionRect.left + 'px';
       } else {
         right = fitRect.width - positionRect.right + 'px';
