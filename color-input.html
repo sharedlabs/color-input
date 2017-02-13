@@ -2,7 +2,7 @@
 <link rel="import" href="color-input-overlay.html">
 
 <dom-module id="color-input">
-  <template>
+  <template strip-whitespaces>
     <style>
       :host {
         display: block;
@@ -31,66 +31,75 @@
     </style>
 
     <div id="inputContainer" >
-      <div id="colorSwatch" on-tap="_swatchTapped" style$="[[_computeColorPreviewStyle(_value)]]"></div>
-      <content select="input" id="slot"></content>
+      <div id="colorSwatch" on-click="_onSwatchClicked" style$="[[_computeColorPreviewStyle(_value)]]"></div>
+      <slot id="slot" slot="input"></slot>
     </div>
 
   </template>
 </dom-module>
 
 <script>
-(function() {
-  'use strict';
 
-  Polymer({
+  class ColorInput extends Polymer.Element {
 
-    is: 'color-input',
+    static get is() {return 'color-input';}
 
-    properties: {
+    static get config() {
+      return {
+        properties: {
 
-      _value: String,
+          _value: String,
 
-      _overlay: Object
+          _overlay: Object          
 
-    },
+        }
+      };
+    }
 
     get input() {
-      return Polymer.dom(this.$.slot).getDistributedNodes()[0]
-    },
+      if (!this._input) {
+        this._input = this.$.slot.assignedNodes({flattern: true}).filter(node => {
+          return node.nodeType === 1;
+        })[0];
+      }
+      return this._input;
+    }
 
-    ready() {
-      this.async(_ => {
+    connectedCallback() {
+      super.connectedCallback();
+
+      setTimeout(_ => {
         this._value = this.input.value;
       });
-    },
+    }
 
-    _swatchTapped(event) {
+    _onSwatchClicked(event) {
       if (this._overlay) {
         this._overlay.remove();
       } else {
         this._value = this.input.value;
 
-        this._overlay = this.create('color-input-overlay', {
-          onDetach: _ => {
-            this._overlay = null;
-          },
-          value: this.input.value,
-          positionTarget: this.$.colorSwatch,
-          opened: true
-        });
+        this._overlay = document.createElement('color-input-overlay');
+        this._overlay.onDetach = _ => {
+          this._overlay = null;
+        };
+        this._overlay.value = this.input.value;
+        this._overlay.positionTarget = this.$.colorSwatch;
+        this._overlay.open();
 
         this._overlay.addEventListener('value-changed', _ => {
           this.input.value = this._overlay.value;
           this._value = this.input.value;
         });
       }
-    },
+    }
 
     _computeColorPreviewStyle(_value) {
       return `background-color: ${_value};`
     }
 
-  });
+  }
 
-}());
+  customElements.define(ColorInput.is, ColorInput);
+
 </script>

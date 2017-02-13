@@ -1,7 +1,7 @@
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
-<link rel="import" href="../overlay-container/overlay-behavior.html">
-<link rel="import" href="../tinycolor/tinycolor.html">
+<link rel="import" href="../overlay-container/overlay-mixin.html">
+<link rel="import" href="../tinycolor-import/tinycolor.html">
 <link rel="import" href="color-input-canvas.html">
 <link rel="import" href="slider-input.html">
 
@@ -59,8 +59,8 @@
       }
 
       .controls__row {
-        @apply(--layout-horizontal);
-        @apply(--layout-start);
+        @apply --layout-horizontal;
+        @apply --layout-start;
         margin-bottom: 20px;
       }
 
@@ -70,7 +70,7 @@
 
       /* sliders */
       .sliders {
-        @apply(--layout-flex);
+        @apply --layout-flex;
       }
 
       .sliders__item {
@@ -84,7 +84,7 @@
 
       /* form */
       .form {
-        @apply(--layout-flex);
+        @apply --layout-flex;
       }
 
       .form__row:not(.active) {
@@ -92,12 +92,12 @@
       }
 
       .form__row {
-        @apply(--layout-horizontal);
-        @apply(--layout-center);
+        @apply --layout-horizontal;
+        @apply --layout-center;
       }
 
       .form__item {
-        @apply(--layout-flex);
+        @apply --layout-flex;
         margin-right: 6px;
       }
 
@@ -110,9 +110,9 @@
         border: 1px solid #ddd;
         box-sizing: border-box;
         font-family: sans-serif;
+        font-size: 14px;
         outline: 0;
         padding: 6px 8px;
-        font-size: 14px;
         width: 100%;
       }
 
@@ -189,237 +189,255 @@
           </div>
         </div>
 
-        <svg id="unfoldIcon" on-tap="_nextFormat" style="width: 22px; height: 22px;" viewBox="0 0 24 24">
+        <svg id="unfoldIcon" on-click="_unfoldIconClicked" style="width: 22px; height: 22px;" viewBox="0 0 24 24">
           <path d="M12,18.17L8.83,15L7.42,16.41L12,21L16.59,16.41L15.17,15M12,5.83L15.17,9L16.58,7.59L12,3L7.41,7.59L8.83,9L12,5.83Z"/>
         </svg>
       </div>
     </div>
 
   </template>
-</dom-module>
+  <script>
 
-<script>
-(function() {
-  'use strict';
+    class ColorInputOverlay extends OverlayMixin(Polymer.Element) {
 
-  Polymer({
+      static get is() {return 'color-input-overlay';}
 
-    is: 'color-input-overlay',
+      static get config() {
+        return {
+          properties: {
 
-    behaviors: [
-      OverlayBehavior
-    ],
+            value: {
+              type: String,
+              notify: true,
+              observer: '_valueChanged'
+            },
 
-    properties: {
+            format: {
+              type: String,
+              value: 'hex',
+              observer: '_formatChanged'
+            },
 
-      value: {
-        type: String,
-        notify: true,
-        observer: '_valueChanged'
-      },
+            /**
+             * The element that should be used to position the element. If not set, it will
+             * be centered on the screen.
+             * @type {!Element}
+             */
+            positionTarget: Object,
 
-      format: {
-        type: String,
-        value: 'hex',
-        observer: '_formatChanged'
-      },
+            // The element to fit `this` into.
+            fitTarget: {
+              type: Object,
+              value: window
+            },
 
-      /**
-       * The element that should be used to position the element. If not set, it will
-       * be centered on the screen.
-       * @type {!Element}
-       */
-      positionTarget: Object,
+            // @override
+            cancelOnOutsideClick: {
+              type: Boolean,
+              value: true
+            },
 
-      // The element to fit `this` into.
-      fitTarget: {
-        type: Object,
-        value: window
-      },
+            // Color values
+            _hex: String,
 
-      // @override
-      cancelOnOutsideClick: {
-        type: Boolean,
-        value: true
-      },
+            _rgb: Object,
 
-      // Color values
-      _hex: String,
+            _hsv: {
+              type: Object,
+              observer: '_onHsvChanged'
+            },
 
-      _rgb: Object,
+            _alpha: {
+              type: Number,
+              observer: '_onAlphaChanged'
+            }
 
-      _hsv: {
-        type: Object,
-        observer: '_onHsvChanged'
-      },
-
-      _alpha: {
-        type: Number,
-        observer: '_onAlphaChanged'
+          }
+        };
       }
 
-    },
-
-    listeners: {
-      'overlay-opened': '_overlayOpened',
-      'overlay-closed': '_overlayClosed'
-    },
-
-    _valueChanged(value) {
-      const tcolor = tinycolor(value);
-
-      this._hex = tcolor.toString('hex3');
-      this._rgb = tcolor.toRgb();
-      this._alpha = this._rgb.a;
-
-      if (!this.$.canvas.dragging) {
-        this._hsv = tcolor.toHsv();
-      }
-    },
-
-    _updateValue(value = this.value) {
-      if (this._alpha < 1 && this.format === 'hex') {
-        this.format = 'rgb';
-        return;
+      constructor() {
+        super();
+        this._overlayOpened = this._overlayOpened.bind(this);
+        this._overlayClosed = this._overlayClosed.bind(this);
       }
 
-      let color = tinycolor(value);
-      color.setAlpha(this._alpha);
-
-      const contrastRatio = tinycolor.readability(color, this.value);
-      if (contrastRatio === 1 && tinycolor(this.value)._a === this._alpha) {
-        return;
+      connectedCallback() {
+        super.connectedCallback();
+        this._toggleListeners({enable: true});
       }
 
-      switch (this.format) {
-        case 'rgb':
-          value = color.toRgbString();
-          break;
-        default:
-          value = color.toString('hex3');
-          break;
+      detachedCallback() {
+        super.detachedCallback();
+        this._toggleListeners({enable: false});
       }
 
-      this.value = value;
-    },
+      _toggleListeners({enable}) {
+        const m = enable ? 'addEventListener' : 'removeEventListener';
 
-    _overlayOpened() {
-      this._positionize();
-    },
-    
-    _overlayClosed() {
-      this.remove();
-    },
-
-    _onHsvChanged() {
-      if (this._hsv) {
-        this._updateValue(this._hsv);        
-      }
-    },
-
-    _onAlphaChanged() {
-      this._updateValue();
-    },
-
-    _nextFormat() {
-      if (this._alpha === 1) {
-        this.format = this.format === 'hex' ? 'rgb' : 'hex';
-      }
-    },
-
-    _formatChanged(format) {
-      if (['hex', 'rgb'].indexOf(format) < 0) {
-        this.format = 'hex';
-        return;
+        this[m]('overlay-opened', this._overlayOpened);
+        this[m]('overlay-closed', this._overlayClosed);
       }
 
-      for (let i = 0; i < this.$.form.children.length; i++) {
-        const child = this.$.form.children[i];
+      _valueChanged(value) {
+        const tcolor = tinycolor(value);
 
-        if (child.getAttribute('name') === format) {
-          child.classList.add('active');
-        } else {
-          child.classList.remove('active');
+        this._hex = tcolor.toString('hex3');
+        this._rgb = tcolor.toRgb();
+        this._alpha = this._rgb.a;
+
+        if (!this.$.canvas.dragging) {
+          this._hsv = tcolor.toHsv();
         }
       }
 
-      this._updateValue();
-    },
+      _updateValue(value = this.value) {
+        console.log(typeof this._alpha, this._alpha)
 
-    _onHexInput(event) {
-      const tcolor = tinycolor(event.currentTarget.value);
+        if (this._alpha < 1 && this.format === 'hex') {
+          this.format = 'rgb';
+          return;
+        }
 
-      if (tcolor.isValid()) {
-        this._hex = event.currentTarget.value;
-        this._updateValue(this._hex);
-      }
-    },
+        let color = tinycolor(value);
+        color.setAlpha(this._alpha);
 
-    _onRgbInput(event) {
-      const channel = event.currentTarget.getAttribute('name');
-      this._rgb[channel] = Number(event.currentTarget.value);
+        const contrastRatio = tinycolor.readability(color, this.value);
+        if (contrastRatio === 1 && tinycolor(this.value)._a === this._alpha) {
+          return;
+        }
 
-      if (channel === 'a') {
-        this._alpha = event.currentTarget.value;
-      } else {
-        this._updateValue(this._rgb);
-      }
-    },
+        switch (this.format) {
+          case 'rgb':
+            value = color.toRgbString();
+            break;
+          default:
+            value = color.toString('hex3');
+            break;
+        }
 
-    _computeColorPreviewStyle(value) {
-      const contrastRatio = tinycolor.readability('white', value);
-      let style = `background-color: ${value};`
-
-      if (contrastRatio <= 1.3) {
-        style += `border-color: #ddd;`
+        this.value = value;
       }
 
-      return style;
-    },
-
-    _computeAlphaStyle(value) {
-      let hexColor = tinycolor(value).toHexString();
-      return `background: linear-gradient(to right, rgba(0,0,0,0), ${hexColor}), url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAADNJREFUOBFjvHHjxn8GPEBDQ4MRjzQDEz5JYuRGDWAYBIGIN45B0UgonYxG42CIRopjAQAbjQemQaw2YQAAAABJRU5ErkJggg==')`;
-    },
-
-    /**
-     * Position the content div to the positionTarget.
-     * top/right align have priority.
-     */
-    _positionize() {
-      const rect = this.getBoundingClientRect();
-      const fitRect = this._getNormalizedRect(this.fitTarget);
-      const positionRect = this.positionTarget.getBoundingClientRect();
-      let top, bottom, right, left;
-      if (fitRect.height - positionRect.bottom >= rect.height) {
-        top = positionRect.top + 'px';
-      } else {
-        bottom = positionRect.bottom + 'px';
+      _overlayOpened() {
+        this._positionize();
       }
-      if (fitRect.width - rect.left >= rect.width) {
-        left = positionRect.left + 'px';
-      } else {
-        right = fitRect.width - positionRect.right + 'px';
+      
+      _overlayClosed() {
+        this.remove();
       }
 
-      Object.assign(this.style, {top, bottom, right, left});
-    },
-
-   _getNormalizedRect(target) {
-      if (target === document.documentElement || target === window) {
-        return {
-          top: 0,
-          left: 0,
-          width: window.innerWidth,
-          height: window.innerHeight,
-          right: window.innerWidth,
-          bottom: window.innerHeight
-        };
+      _onHsvChanged() {
+        if (this._hsv) {
+          // this._updateValue(this._hsv);        
+        }
       }
-      return target.getBoundingClientRect();
+
+      _onAlphaChanged() {
+        this._updateValue();
+      }
+
+      _unfoldIconClicked() {
+        if (this._alpha === 1) {
+          this.format = this.format === 'hex' ? 'rgb' : 'hex';
+        }
+      }
+
+      _formatChanged(format) {
+        if (['hex', 'rgb'].indexOf(format) < 0) {
+          this.format = 'hex';
+          return;
+        }
+
+        for (let i = 0; i < this.$.form.children.length; i++) {
+          const child = this.$.form.children[i];
+
+          if (child.getAttribute('name') === format) {
+            child.classList.add('active');
+          } else {
+            child.classList.remove('active');
+          }
+        }
+
+        // this._updateValue();
+      }
+
+      _onHexInput(event) {
+        const tcolor = tinycolor(event.currentTarget.value);
+
+        if (tcolor.isValid()) {
+          this._hex = event.currentTarget.value;
+          // this._updateValue(this._hex);
+        }
+      }
+
+      _onRgbInput(event) {
+        const channel = event.currentTarget.getAttribute('name');
+        this._rgb[channel] = Number(event.currentTarget.value);
+
+        if (channel === 'a') {
+          this._alpha = event.currentTarget.value;
+        } else {
+          // this._updateValue(this._rgb);
+        }
+      }
+
+      _computeColorPreviewStyle(value) {
+        const contrastRatio = tinycolor.readability('white', value);
+        let style = `background-color: ${value};`
+
+        if (contrastRatio <= 1.3) {
+          style += `border-color: #ddd;`
+        }
+
+        return style;
+      }
+
+      _computeAlphaStyle(value) {
+        let hexColor = tinycolor(value).toHexString();
+        return `background: linear-gradient(to right, rgba(0,0,0,0), ${hexColor}), url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAADNJREFUOBFjvHHjxn8GPEBDQ4MRjzQDEz5JYuRGDWAYBIGIN45B0UgonYxG42CIRopjAQAbjQemQaw2YQAAAABJRU5ErkJggg==')`;
+      }
+
+      /**
+       * Position the content div to the positionTarget.
+       * top/right align have priority.
+       */
+      _positionize() {
+        const rect = this.getBoundingClientRect();
+        const fitRect = this._getNormalizedRect(this.fitTarget);
+        const positionRect = this.positionTarget.getBoundingClientRect();
+        let top, bottom, right, left;
+        if (fitRect.height - positionRect.bottom >= rect.height) {
+          top = positionRect.top + 'px';
+        } else {
+          bottom = positionRect.bottom + 'px';
+        }
+        if (fitRect.width - rect.left >= rect.width) {
+          left = positionRect.left + 'px';
+        } else {
+          right = fitRect.width - positionRect.right + 'px';
+        }
+
+        Object.assign(this.style, {top, bottom, right, left});
+      }
+
+    _getNormalizedRect(target) {
+        if (target === document.documentElement || target === window) {
+          return {
+            top: 0,
+            left: 0,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            right: window.innerWidth,
+            bottom: window.innerHeight
+          };
+        }
+        return target.getBoundingClientRect();
+      }
+
     }
 
-  });
+    customElements.define(ColorInputOverlay.is, ColorInputOverlay);
 
-}());
-</script>
+  </script>
+</dom-module>

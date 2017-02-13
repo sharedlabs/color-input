@@ -2,13 +2,13 @@
   "name": "color-input",
   "main": "color-input.html",
   "dependencies": {
-    "polymer": "Polymer/polymer#^1.4.0",
-    "overlay-container": "git@github.com:sharedlabs/overlay-container.git",
-    "tinycolor": "git@github.com:sharedlabs/tinycolor.git#master"
+    "polymer": "Polymer/polymer#2.0-preview",
+    "overlay-container": "git@github.com:sharedlabs/overlay-container.git#1.0.0",
+    "tinycolor-import": "git@github.com:sharedlabs/tinycolor-import.git#0.1.0",
+    "iron-range-behavior": "PolymerElements/iron-range-behavior#^1.0.6"
   },
   "devDependencies": {
-    "iron-component-page": "PolymerElements/iron-component-page#^1.0.0",
-    "iron-demo-helpers": "PolymerElements/iron-demo-helpers#^1.0.0",
+    "iron-component-page": "PolymerElements/iron-component-page#2.0-preview",
     "web-component-tester": "^4.0.0",
     "webcomponentsjs": "webcomponents/webcomponentsjs#^0.7.0"
   }
